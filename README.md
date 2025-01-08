@@ -2,6 +2,9 @@
 
 Reuploaded because the original repository is private and/or deleted.
 
+## Mods Version
+**1.20.4**
+
 ## How to Use
 
 1. **Activate GUI:**
@@ -37,7 +40,7 @@ Make sure you have the following mods installed:
 - Designed to work with Skai256's MapArt platform.
 
 ## Notes
-- Happy dithering and enjoy creating your MapArt!
+- Happy dithering!
 
 ## Disclaimer
 This reupload will not be updated, ask bebeli55.
