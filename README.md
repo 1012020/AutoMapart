@@ -1,5 +1,9 @@
 # MapArt Tool by bebeli55
 
+## Download
+
+[Download here](https://github.com/username/repository/releases/download/v1.0.0/filename.jar)
+
 Reuploaded because the original repository is private and/or deleted.
 
 ## Mods Version
@@ -45,7 +49,3 @@ Make sure you have the following mods installed:
 ## Disclaimer
 This reupload will not be updated, ask bebeli55.
 If you need assistance with this version, feel free to message me on Discord: **teve2333333333333333**.
-
-## Download
-
-[Download the latest version here](https://github.com/username/repository/releases/download/v1.0.0/filename.jar)
