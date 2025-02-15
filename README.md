@@ -36,8 +36,6 @@ Make sure you have the following mods installed:
 
 ## Features
 - Simplified GUI for easy usage.
-- Compatibility with `.nbt` schematic files.
-- Designed to work with Skai256's MapArt platform.
 
 ## Notes
 - Happy dithering!
