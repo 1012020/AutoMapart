@@ -42,7 +42,3 @@ Make sure you have the following mods installed:
 
 ## Video Demo
 Check out the [MapArt Tool Demo on YouTube](https://www.youtube.com/watch?v=WIwxatXd0eY).
-<<<<<<< HEAD
-"# AutoMapart" 
-=======
->>>>>>> b4dd7b3284fc51ea42b4b6bb515479a4c36fa7f7
