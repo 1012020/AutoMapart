@@ -28,11 +28,10 @@ Reuploaded because the original repository is private and/or deleted.
 
 ## Required Mods
 Make sure you have the following mods installed:
-- **Bartione**
-- **Fabric API**
-- **Litematica**
-- **Malilib**
-- **Sodium**
+   - Minecraft Fabric Loader
+   - Fabric API
+   - Baritone API
+   - AutoMapart Framework (contains required utils)
 
 ## Features
 - Simplified GUI for easy usage.
