@@ -42,9 +42,5 @@ Make sure you have the following mods installed:
 ## Notes
 - Happy dithering!
 
-## Disclaimer
-This reupload will not be updated, ask bebeli55.
-If you need assistance with this version, feel free to message me on Discord: **teve2333333333333333**.
-
 ## Video Demo
 Check out the [MapArt Tool Demo on YouTube](https://www.youtube.com/watch?v=WIwxatXd0eY).
