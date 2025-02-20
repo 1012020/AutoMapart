@@ -1,0 +1,36 @@
+{
+  "required": true,
+  "package": "me.bebeli555.automapart.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": [
+    "game.ChatInputSuggestorMixin",
+    "game.KeyboardMixin",
+    "game.MinecraftClientMixin",
+    "game.MouseMixin",
+    "game.ShaderProgramMixin",
+    "game.ShapeIndexBufferAccessor",
+    "game.TextureManagerMixin",
+    "game.TransformationMixin",
+    "network.ClientConnectionMixin",
+    "network.ClientPlayNetworkHandlerMixin",
+    "render.BossBarHudMixin",
+    "render.ChatHudMixin",
+    "render.ChatScreenMixin",
+    "render.GameRendererMixin",
+    "render.InGameHudMixin",
+    "render.ItemEntityRendererMixin",
+    "render.LivingEntityRendererMixin",
+    "render.MobSpawnerBlockEntityRendererMixin",
+    "render.RenderTickCounterMixin",
+    "render.WorldRendererMixin",
+    "world.CameraMixin",
+    "world.ClientWorldPropertiesMixin",
+    "world.ParticleManagerMixin"
+  ],
+  "mixins": [
+    "world.WorldMixin"
+  ]
+}

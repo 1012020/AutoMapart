@@ -1,0 +1,62 @@
+plugins {
+    id 'fabric-loom' version '1.6.5'
+    id "com.github.johnrengelman.shadow" version "8.1.1"
+}
+
+sourceCompatibility = targetCompatibility = JavaVersion.VERSION_17
+version = project.mod_version
+group = project.maven_group
+archivesBaseName = project.archives_base_name
+
+repositories {
+    maven {url = "https://jitpack.io"}
+    maven {url = "https://maven-eclipse.github.io/maven"}
+    maven {url = "https://api.modrinth.com/maven"
+        content {
+            includeGroup "maven.modrinth"
+        }
+    }
+
+    mavenCentral()
+}
+
+configurations {
+    implementation.extendsFrom(jarLibs)
+
+    jarLibs {
+        resolutionStrategy {
+            force 'org.lwjgl.lwjgl:lwjgl-platform:2.9.4-nightly-20150209'
+        }
+    }
+}
+
+tasks.withType(Jar).configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    modImplementation files("libs/baritone.jar")
+
+    jarLibs "net.jodah:typetools:0.6.3"
+    jarLibs "org.reflections:reflections:0.10.2"
+
+    jarLibs "com.github.LlamaLad7.MixinExtras:mixinextras-fabric:${project.mixin_extras_version}"
+    annotationProcessor "com.github.LlamaLad7.MixinExtras:mixinextras-fabric:${project.mixin_extras_version}"
+}
+
+loom {
+    accessWidenerPath = file("src/main/resources/automapart.accesswidener")
+}
+
+jar {
+    from {
+        configurations.jarLibs.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+}
