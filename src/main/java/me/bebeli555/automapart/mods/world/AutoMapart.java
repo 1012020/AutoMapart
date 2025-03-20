@@ -38,7 +38,7 @@ import java.util.*;
 import java.util.List;
 
 public class AutoMapart extends Mod {
-    // Settings
+    // Settings (names shortened)
     public static Setting sIdx = new Setting(Mode.INTEGER, "SIdx", 1, "Schematic index", "Increments when finished");
     public static Setting sX = new Setting(Mode.INTEGER, "X", 0, "Schematic X");
     public static Setting sY = new Setting(Mode.INTEGER, "Y", 0, "Schematic Y");
@@ -63,9 +63,11 @@ public class AutoMapart extends Mod {
     public static Setting leastFirst = new Setting(Mode.BOOLEAN, "LeastFirst", false, "Place least used carpets first");
     public static Setting instantChest = new Setting(Mode.BOOLEAN, "InstChest", true, "Instant chest extraction");
     public static Setting carpetDelay = new Setting(Mode.DOUBLE, "CarpetDelay", new SettingValue(0.05, 0, 2, 0.01), "Delay between dropping carpets");
+
+    // New setting: multiplier for delays (lower value makes delays shorter, i.e. faster execution)
     public static Setting speedMultiplier = new Setting(Mode.DOUBLE, "SpeedMul", new SettingValue(1.0, 0.01, 2.0, 0.001), "Speed multiplier for delays; lower is faster");
 
-    // Instance variables
+    // Instance variables (names shortened)
     public SchematicReader sr;
     public Map<BlockPos, BlockState> bc = new HashMap<>();
     public Timer bct = new Timer();
@@ -77,6 +79,7 @@ public class AutoMapart extends Mod {
     // Throttle repeated chat messages
     private long lastWrongCarpetMsg = 0;
     private long lastOpenChestMsg   = 0;
+    // Minimum time (ms) between repeated messages
     private static final long MESSAGE_COOLDOWN = 2000;
 
     public AutoMapart() {
@@ -97,7 +100,7 @@ public class AutoMapart extends Mod {
 
     // Helper method: sleep using the speed multiplier
     private void sleepOptimized(double seconds) {
-        sleep((int)(seconds * speedMultiplier.asDouble() * 1000));
+        sleep((int) (seconds * speedMultiplier.asDouble() * 1000));
     }
 
     // Helper method: squared distance between two BlockPos
@@ -127,107 +130,33 @@ public class AutoMapart extends Mod {
         }
     }
 
-    // ===== NEW PATHFINDING ENHANCEMENTS (with A*) =====
+    // ===== NEW PATHFINDING ENHANCEMENTS =====
 
+    /**
+     * safeGoTo first checks if the direct path is free of solid blocks.
+     * If not, it attempts to locate a nearby safe target.
+     * Additionally, this version forces the target's Y coordinate to match the player's current Y level
+     * to avoid unwanted vertical movement.
+     */
     private void safeGoTo(BlockPos targetPos) {
         BlockPos playerPos = mc.player.getBlockPos();
-        targetPos = new BlockPos(targetPos.getX(), playerPos.getY(), targetPos.getZ());
-        
-        List<BlockPos> path = findPath(playerPos, targetPos);
-        if (path.isEmpty()) {
+        // Force target to be on the same level as the player
+        if (targetPos.getY() != playerPos.getY()) {
+            targetPos = new BlockPos(targetPos.getX(), playerPos.getY(), targetPos.getZ());
+        }
+        if (!isPathSafe(targetPos)) {
             BlockPos safeTarget = findSafeTarget(targetPos);
-            BaritoneUtils.goTo(safeTarget);
-        } else {
-            for (BlockPos waypoint : path) {
-                BaritoneUtils.goTo(waypoint);
+            if (debug.bool()) {
+                sendMessage("Adjusted target from " + targetPos + " to safe " + safeTarget);
             }
+            targetPos = safeTarget;
         }
+        BaritoneUtils.goTo(targetPos);
     }
 
-    private List<BlockPos> findPath(BlockPos start, BlockPos target) {
-        Comparator<Node> comparator = Comparator.comparingDouble(n -> n.fCost);
-        PriorityQueue<Node> openSet = new PriorityQueue<>(comparator);
-        Map<BlockPos, Double> costSoFar = new HashMap<>();
-        Map<BlockPos, BlockPos> cameFrom = new HashMap<>();
-
-        Node startNode = new Node(start, 0, heuristic(start, target));
-        openSet.add(startNode);
-        costSoFar.put(start, 0.0);
-
-        while (!openSet.isEmpty()) {
-            Node current = openSet.poll();
-            if (current.pos.equals(target)) {
-                return reconstructPath(cameFrom, target);
-            }
-            for (BlockPos neighbor : getNeighbors(current.pos)) {
-                if (!isTraversable(mc.world.getBlockState(neighbor), neighbor)) continue;
-                double newCost = costSoFar.get(current.pos) + 1;
-                if (!costSoFar.containsKey(neighbor) || newCost < costSoFar.get(neighbor)) {
-                    costSoFar.put(neighbor, newCost);
-                    double priority = newCost + heuristic(neighbor, target);
-                    openSet.add(new Node(neighbor, newCost, priority));
-                    cameFrom.put(neighbor, current.pos);
-                }
-            }
-        }
-        return new ArrayList<>();
-    }
-
-    private double heuristic(BlockPos a, BlockPos b) {
-        return Math.abs(a.getX() - b.getX()) + Math.abs(a.getY() - b.getY()) + Math.abs(a.getZ() - b.getZ());
-    }
-
-    private List<BlockPos> reconstructPath(Map<BlockPos, BlockPos> cameFrom, BlockPos target) {
-        LinkedList<BlockPos> path = new LinkedList<>();
-        BlockPos current = target;
-        while (cameFrom.containsKey(current)) {
-            path.addFirst(current);
-            current = cameFrom.get(current);
-        }
-        path.addFirst(current);
-        return path;
-    }
-
-    private List<BlockPos> getNeighbors(BlockPos pos) {
-        List<BlockPos> neighbors = new ArrayList<>();
-        neighbors.add(pos.up());
-        neighbors.add(pos.down());
-        neighbors.add(pos.north());
-        neighbors.add(pos.south());
-        neighbors.add(pos.east());
-        neighbors.add(pos.west());
-        return neighbors;
-    }
-
-    private class Node {
-        BlockPos pos;
-        double cost;
-        double fCost;
-
-        public Node(BlockPos pos, double cost, double fCost) {
-            this.pos = pos;
-            this.cost = cost;
-            this.fCost = fCost;
-        }
-    }
-
-    private BlockPos findSafeTarget(BlockPos target) {
-        int radius = 2;
-        for (int r = 0; r <= radius; r++) {
-            for (int dx = -r; dx <= r; dx++) {
-                for (int dy = -r; dy <= r; dy++) {
-                    for (int dz = -r; dz <= r; dz++) {
-                        BlockPos candidate = target.add(dx, dy, dz);
-                        if (isPathSafe(candidate)) {
-                            return candidate;
-                        }
-                    }
-                }
-            }
-        }
-        return target;
-    }
-
+    /**
+     * Checks if the direct line from the player to the target is free of obstacles.
+     */
     private boolean isPathSafe(BlockPos targetPos) {
         BlockPos start = mc.player.getBlockPos();
         for (BlockPos pos : getLinePoints(start, targetPos)) {
@@ -239,6 +168,10 @@ public class AutoMapart extends Mod {
         return true;
     }
 
+    /**
+     * Returns a list of block positions interpolated along the line between two points.
+     * (Uses a simple DDA-style approach.)
+     */
     private List<BlockPos> getLinePoints(BlockPos start, BlockPos end) {
         List<BlockPos> points = new ArrayList<>();
         int dx = end.getX() - start.getX();
@@ -255,13 +188,40 @@ public class AutoMapart extends Mod {
         return points;
     }
 
+    /**
+     * Checks whether the block state is traversable (i.e. has an empty collision shape).
+     */
     private boolean isTraversable(BlockState state, BlockPos pos) {
+        // Allow walking on carpets even if they have a non-empty collision shape.
         if (state.getBlock() instanceof CarpetBlock) {
             return true;
         }
         return state.getCollisionShape(mc.world, pos).isEmpty();
     }
 
+    /**
+     * If the direct path is blocked, search nearby for a safe target position.
+     */
+    private BlockPos findSafeTarget(BlockPos target) {
+        int radius = 2;
+        for (int r = 0; r <= radius; r++) {
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dy = -r; dy <= r; dy++) {
+                    for (int dz = -r; dz <= r; dz++) {
+                        BlockPos candidate = target.add(dx, dy, dz);
+                        if (isPathSafe(candidate)) {
+                            return candidate;
+                        }
+                    }
+                }
+            }
+        }
+        return target; // fallback if no safe target found
+    }
+
+    /**
+     * Returns a list of safe adjacent positions (north, south, east, west) for a given block.
+     */
     private List<BlockPos> getAdjacentSafePositions(BlockPos chestPos) {
         List<BlockPos> safePositions = new ArrayList<>();
         BlockPos[] neighbors = new BlockPos[] {
@@ -271,6 +231,7 @@ public class AutoMapart extends Mod {
             chestPos.west()
         };
         for (BlockPos pos : neighbors) {
+            // Ensure the position and one block above are free (simple check for safety)
             if (mc.world.getBlockState(pos).getBlock() == Blocks.AIR &&
                 mc.world.getBlockState(pos.up()).getBlock() == Blocks.AIR) {
                 safePositions.add(pos);
@@ -279,33 +240,44 @@ public class AutoMapart extends Mod {
         return safePositions;
     }
 
+    // ===== END PATHFINDING ENHANCEMENTS =====
+
     // ===== INVENTORY MANAGEMENT REFINEMENTS =====
 
+    /**
+     * Drops any carpets in the inventory that aren’t the correct type.
+     */
     private void dropWrongCarpets() {
         List<Slot> slots = mc.player.playerScreenHandler.slots;
         for (Slot slot : slots) {
-            if (slot.getStack() == null) continue;
+            // Use isEmpty() check rather than comparing to null
+            if (slot.getStack() == null || slot.getStack().isEmpty()) continue;
             if (slot.getStack().getItem() instanceof ArmorItem) continue;
             if (Block.getBlockFromItem(slot.getStack().getItem()) instanceof CarpetBlock
                     && slot.getStack().getItem() != Item.fromBlock(btp)) {
-                run(() -> InventoryUtils.dropItem(slot.id));
+                run(() -> InventoryUtils.throwAway(slot.id));
                 sleepOptimized(carpetDelay.asDouble());
             }
         }
     }
 
+    /**
+     * Handles retrieving the correct carpet items from an open chest.
+     */
     private void takeCarpetsFromChest() {
         sleepOptimized(0.3);
         double delay = instantChest.bool() ? carpetDelay.asDouble() : takeDelay.asDouble();
         List<Slot> slots = mc.player.currentScreenHandler.slots;
         for (Slot slot : slots) {
-            if (slot.id <= 53 && slot.getStack().getItem() == Item.fromBlock(btp)) {
+            if (slot.id <= 53 && !slot.getStack().isEmpty() && slot.getStack().getItem() == Item.fromBlock(btp)) {
                 if (InventoryUtils.getFreeSpace() <= 0) break;
                 run(() -> InventoryUtils.quickMove(slot.id));
                 sleepOptimized(delay);
             }
         }
-        run(() -> mc.currentScreen.close());
+        if (mc.currentScreen != null) {
+            run(() -> mc.currentScreen.close());
+        }
     }
 
     // ===== END INVENTORY MANAGEMENT REFINEMENTS =====
@@ -331,11 +303,13 @@ public class AutoMapart extends Mod {
                 sendMessage("Loaded " + f.getName() + " with " + sr.list.size() + " blocks");
             }
             int purged = 0;
-            List<SchematicReader.SchematicBlock> tmp = new ArrayList<>(sr.list);
-            for (SchematicReader.SchematicBlock sb : tmp) {
+            // Use an iterator to safely remove non-carpet blocks and adjust positions based on sDir
+            Iterator<SchematicReader.SchematicBlock> iter = sr.list.iterator();
+            while(iter.hasNext()) {
+                SchematicReader.SchematicBlock sb = iter.next();
                 if (!(sb.block instanceof CarpetBlock)) {
                     purged++;
-                    sr.list.remove(sb);
+                    iter.remove();
                 } else {
                     switch (sDir.asInt()) {
                         case 1:
@@ -348,6 +322,7 @@ public class AutoMapart extends Mod {
                             sb.pos = new BlockPos(-sb.pos.getX(), sb.pos.getY(), -sb.pos.getZ());
                             break;
                         case 4:
+                            // no change
                             break;
                         case 5:
                             sb.pos = new BlockPos(sb.pos.getZ(), sb.pos.getY(), -sb.pos.getX());
@@ -383,7 +358,8 @@ public class AutoMapart extends Mod {
 
     @Subscribe
     public void renderLast(WorldRenderContext ctx) {
-        if (isOn() && render.bool()) {
+        if (isOn() && render.bool() && sr != null) {
+            // Cache offset values for rendering
             int offX = sX.asInt(), offY = sY.asInt(), offZ = sZ.asInt();
             Vec3d cam = mc.gameRenderer.getCamera().getPos();
             for (SchematicReader.SchematicBlock sb : sr.list) {
@@ -402,17 +378,23 @@ public class AutoMapart extends Mod {
         if (!isOn() || mc.player == null || mc.world == null || render.bool() || !init) {
             return;
         }
+
+        // Add a short sleep each iteration to prevent spamming in tight loops
         sleep(150);
+
         if (ea) {
             ea = false;
             run(this::onEnabled);
             sleep(5);
         }
+
+        // Cache frequently used values
         BlockPos playerPos = mc.player.getBlockPos();
         int offX = sX.asInt(), offY = sY.asInt(), offZ = sZ.asInt();
         double maxPlaceDist = pDist.asDouble();
         double maxDistSq = maxPlaceDist * maxPlaceDist;
 
+        // Finished mapart state
         if (fin) {
             sleep(200);
             if (rm) {
@@ -436,16 +418,18 @@ public class AutoMapart extends Mod {
                     run(this::onEnabled);
                 }
             } else {
+                // Drop any wrong carpets if present
                 if (mc.player.playerScreenHandler != null) {
                     if (debug.bool()) sendMessage("Dropping carpets");
                     run(() -> RotationUtils.rotateTo(playerPos.add(2, 1, 0)));
                     dropWrongCarpets();
                     return;
                 }
+
                 BlockPos sp = new BlockPos(stX.asInt(), stY.asInt(), stZ.asInt());
                 boolean locked = false;
                 for (Slot slot : mc.player.playerScreenHandler.slots) {
-                    if (slot.getStack().getItem() == Items.FILLED_MAP) {
+                    if (!slot.getStack().isEmpty() && slot.getStack().getItem() == Items.FILLED_MAP) {
                         ItemStack st = slot.getStack();
                         if (st.hasNbt() && st.getNbt().contains("map")) {
                             int mapId = st.getNbt().getInt("map");
@@ -463,13 +447,14 @@ public class AutoMapart extends Mod {
                         takeCarpetsFromChest();
                     } else {
                         if (debug.bool()) sendMessage("No chest open, looking for chest or station container");
+                        // Additional chest search logic can be added here.
                     }
                 } else if (mc.currentScreen instanceof CartographyTableScreen) {
                     if (debug.bool()) sendMessage("Locking map");
                     List<Slot> slots = mc.player.playerScreenHandler.slots;
                     for (Slot slot : slots) {
-                        if (slot.id > 2 && (slot.getStack().getItem() == Items.GLASS_PANE
-                                || slot.getStack().getItem() == Items.FILLED_MAP)) {
+                        if (slot.id > 2 && (!slot.getStack().isEmpty() && 
+                           (slot.getStack().getItem() == Items.GLASS_PANE || slot.getStack().getItem() == Items.FILLED_MAP))) {
                             run(() -> InventoryUtils.quickMove(slot.id));
                         }
                     }
@@ -508,6 +493,7 @@ public class AutoMapart extends Mod {
             return;
         }
 
+        // Regular mapping loop
         if (aprt.hasPassed((int) (resetAttemptDelay.asDouble() * 1000))) {
             ap.clear();
             aprt.reset();
@@ -556,8 +542,10 @@ public class AutoMapart extends Mod {
             }
         }
 
+        // Ensure inventory has the right carpets (drop wrong ones)
         boolean rot = false;
         for (Slot slot : mc.player.playerScreenHandler.slots) {
+            if (slot.getStack() == null || slot.getStack().isEmpty()) continue;
             if (slot.getStack().getItem() instanceof ArmorItem) continue;
             if (Block.getBlockFromItem(slot.getStack().getItem()) instanceof CarpetBlock) {
                 if (slot.getStack().getItem() != Item.fromBlock(btp)) {
@@ -579,6 +567,7 @@ public class AutoMapart extends Mod {
             run(() -> mc.getNetworkHandler().sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId)));
         }
 
+        // Check if we have the needed carpets; if not, search for a chest
         if (InventoryUtils.getAmountOfItem(Item.fromBlock(btp)) == 0) {
             List<BlockPos> chests = new ArrayList<>();
             for (int x = -200; x < 200; x++) {
@@ -616,6 +605,7 @@ public class AutoMapart extends Mod {
                     }
                 } else {
                     if (debug.bool()) sendMessage("Moving to chest at " + nc);
+                    // Use adjacent safe positions to ensure proper positioning
                     List<BlockPos> safePositions = getAdjacentSafePositions(nc);
                     if (!safePositions.isEmpty()) {
                         BlockPos bestPos = Collections.min(safePositions, Comparator.comparingDouble(pos -> squaredDistance(playerPos, pos)));
@@ -632,6 +622,7 @@ public class AutoMapart extends Mod {
             return;
         }
 
+        // Gather positions to place blocks
         List<BlockPos> posList = new ArrayList<>();
         for (SchematicReader.SchematicBlock sb : sr.list) {
             BlockPos pos = sb.pos.add(offX, offY, offZ);
@@ -689,15 +680,16 @@ public class AutoMapart extends Mod {
                     run(() -> InventoryUtils.switchToItem(Item.fromBlock(btp)));
                 }
                 run(() -> RotationUtils.rotateTo(pos.add(0, -1, 0)));
-                sleep((int)(rotWait.asDouble() * 1000));
-                if (mc.crosshairTarget.getType() == HitResult.Type.BLOCK) {
+                sleep((int) (rotWait.asDouble() * 1000));
+                // Check that crosshairTarget is non-null before accessing its type
+                if (mc.crosshairTarget != null && mc.crosshairTarget.getType() == HitResult.Type.BLOCK) {
                     BlockHitResult hit = (BlockHitResult) mc.crosshairTarget;
                     if (mc.world.getBlockState(hit.getBlockPos()).getBlock() == btp) {
                         continue;
                     }
                 }
                 run(PlayerUtils::rightClick);
-                sleep((int)(pSpeed.asDouble() * 1000));
+                sleep((int) (pSpeed.asDouble() * 1000));
             }
         }
     }
