@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "automapart",
+  "version": "${version}",
+  "name": "AutoMapart",
+  "description": "Automated mapart creation mod",
+  "authors": [
+    "bebeli555"
+  ],
+  "contact": {
+    "homepage": "ADD",
+    "sources": "ADD"
+  },
+  "icon": "assets/automapart/logo.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "me.bebeli555.automapart.Mod"
+    ]
+  },
+  "mixins": [
+    "automapart.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.21",
+    "minecraft": "~1.20.4",
+    "java": ">=17",
+    "fabric-api": "*"
+  }
+}
